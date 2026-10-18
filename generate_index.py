@@ -6,6 +6,7 @@
 Τρέχει αυτόματα σε κάθε push μέσω .github/workflows/deploy.yml — δεν χρειάζεται
 να τρέχει χειροκίνητα.
 """
+import json
 import os
 import re
 import html
@@ -18,9 +19,12 @@ QUIZDY_BASE = "https://vicajilau.github.io/quizdy/"
 REPO = os.environ.get("REPO", "vasilikimoutousidou/quiz")
 BRANCH = os.environ.get("BRANCH", "main")
 
-# Κ01 - Τίτλος.quiz            -> κεφάλαιο 01, επαναληπτικό
-# Κ01.Ε02 - Τίτλος.quiz        -> κεφάλαιο 01, ενότητα 02
-FNAME_RE = re.compile(r"^Κ(\d+)(?:\.Ε(\d+))? - (.+)\.quiz$")
+# Τα αρχεία έχουν ονόματα timestamp (Κουίζ2610181529_07.quiz). Κεφάλαιο, ενότητα
+# και τίτλος διαβάζονται από το metadata.title κάθε quiz:
+# "Κεφάλαιο 1: Τίτλος"              -> κεφάλαιο 1, επαναληπτικό
+# "Κεφάλαιο 1, Ενότητα 2: Τίτλος"   -> κεφάλαιο 1, ενότητα 2
+# Quiz με τίτλο άλλης μορφής εμφανίζεται στα «unmatched».
+TITLE_RE = re.compile(r"^Κεφάλαιο (\d+)(?:, Ενότητα (\d+))?: (.+)$")
 
 CHAPTER_EMOJI = {
     "01": "📘", "02": "🛒", "03": "🏭", "04": "📦", "05": "⚖️",
@@ -50,11 +54,17 @@ def collect():
     for filename in sorted(os.listdir(QUIZ_DIR)):
         if not filename.endswith(".quiz"):
             continue
-        m = FNAME_RE.match(filename)
+        try:
+            with open(os.path.join(QUIZ_DIR, filename), encoding="utf-8") as f:
+                meta_title = json.load(f).get("metadata", {}).get("title", "")
+        except (OSError, ValueError):
+            meta_title = ""
+        m = TITLE_RE.match(meta_title)
         if not m:
             unmatched.append(filename)
             continue
         chap_num, unit_num, title = m.groups()
+        chap_num = f"{int(chap_num):02d}"
         chap = chapters.setdefault(chap_num, {"title": None, "chapter_file": None, "units": []})
         if unit_num is None:
             chap["title"] = title

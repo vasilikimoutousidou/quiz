@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Συγχρονίζει όλα τα .quiz αρχεία από το vault (10.Quiz/) σε αυτό το repo και
+# Συγχρονίζει όλα τα .quiz αρχεία από το vault (10.Κουίζ/) σε αυτό το repo και
 # κάνει push στο GitHub. Το GitHub Actions workflow αναλαμβάνει να ανανεώσει
 # αυτόματα το index.html στο Pages μετά το push.
 #
@@ -7,7 +7,7 @@
 #   ~/quiz-repo/sync.sh
 set -euo pipefail
 
-VAULT_QUIZ_DIR="/home/vasiliki/Έγγραφα/ΑΟΘ/10.Quiz"
+VAULT_QUIZ_DIR="/home/vasiliki/Έγγραφα/OBSIDIAN/ΑΟΘ/Εκπαιδευτικό υλικό/10.Κουίζ"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST_DIR="$REPO_DIR/quizzes"
 
@@ -32,6 +32,17 @@ for f in "$DEST_DIR"/*.quiz; do
   fi
 done
 shopt -u nullglob
+
+# Προειδοποίηση για quiz με τίτλο εκτός μορφής (θα πέσουν στα «unmatched» του index).
+# Μορφή: "Κεφάλαιο 1: Τίτλος" ή "Κεφάλαιο 1, Ενότητα 2: Τίτλος" στο metadata.title.
+if command -v jq >/dev/null; then
+  for f in "$DEST_DIR"/*.quiz; do
+    t="$(jq -r '.metadata.title // ""' "$f")"
+    if ! [[ "$t" =~ ^Κεφάλαιο\ [0-9]+(,\ Ενότητα\ [0-9]+)?:\  ]]; then
+      echo "Προσοχή: $(basename "$f") έχει τίτλο εκτός μορφής: «$t»" >&2
+    fi
+  done
+fi
 
 cd "$REPO_DIR"
 git add -A quizzes/
